@@ -1,0 +1,118 @@
+#!/usr/bin/perl -w
+
+use strict;
+use warnings FATAL => qw(all);
+
+my $servicedir = qq{/etc/wocut};
+
+main();
+
+###########################
+# wocut - Manage random redirection of incoming connections to one port
+#	to a bunch of ports. Manage several such profiles at the same time,
+#	treating them like SysVInit services and keeping track of ones to
+#	restore on boot, let users start/stop them individually.
+#
+# Written by Pat Gunn, November 2013. Public Domain.
+# Thanks to the #iptables channel for informing me of the feature
+# this depends on.
+
+sub main
+{
+my %cfg = handle_args(@ARGV);
+if(	$cfg{cmd} eq 'start')		{dispatch_start(	%cfg);}
+elsif(	$cfg{cmd} eq 'stop')		{dispatch_stop(		%cfg);}
+elsif(	$cfg{cmd} eq 'define')		{dispatch_define(	%cfg);}
+elsif(	$cfg{cmd} eq 'list')		{dispatch_list(		%cfg);}
+}
+
+sub handle_args
+{
+my @args = @_;
+my %cfg;
+
+if(! @args) {usage();}
+
+$cfg{cmd} = shift(@args);
+if($cfg{cmd} eq 'list')
+	{ # Takes no additional args
+	if(@args) {usage();}
+	}
+elsif(	($cfg{cmd} eq 'start')
+||	($cfg{cmd} eq 'stop' ) )
+	{ # Take one arg, the name of the service
+	if(@args != 1) {usage();}
+	$cfg{service} = shift(@args);
+	}
+elsif($cfg{cmd} eq 'define')
+	{ # Take service name and a definition (many components, defer parsing)
+	if(@args < 2) {usage();}
+	$cfg{service} = shift(@args);
+	$cfg{definition} = \@args; # Stash the whole thing for more parsing later
+	}
+else	{usage();}
+return %cfg;
+}
+
+sub usage
+{
+die "Usage: wocut COMMAND\n"
+.	"\tCOMMAND is one of:\n"
+.	"\t\tlist\n"
+.	"\t\tstart SERVICE\n"
+.	"\t\tstop SERVICE\n"
+.	"\t\tdefine SERVICE DEFINITION\n";
+}
+
+################
+# Dispatch functions
+
+sub dispatch_list
+{
+my %cfg = @_;
+}
+
+sub dispatch_start
+{ # "service" key says which one
+my %cfg = @_;
+}
+
+sub dispatch_stop
+{ # "service" key says which one
+my %cfg = @_;
+}
+
+sub dispatch_define
+{ # "service" key says which one, "definition" key is a listref that defines the service.
+my %cfg = @_;
+}
+
+#################
+# Handle wocut files
+
+sub read_services
+{ # Read all services from the servicedir into a hash, return that
+
+}
+
+sub save_service
+{ # Save a service the user has provided via CLI into the servicedir
+
+}
+
+sub _read_service
+{ # Read a particular servicefile. 
+
+}
+
+sub serviceauto_set
+{
+
+}
+
+sub serviceautos_read
+{
+
+}
+
+###############
