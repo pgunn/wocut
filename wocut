@@ -2,6 +2,7 @@
 
 use strict;
 use warnings FATAL => qw(all);
+use YAML::XS; # In Debian, you want the libyaml-libyaml-perl package for this.
 
 my $servicedir = qq{/etc/wocut};
 
@@ -17,6 +18,27 @@ main();
 # Thanks to the #iptables channel for informing me of the feature
 # this depends on.
 
+##############
+# Current stumpers:
+#	How do we want to manage mark allocation?
+#		A perfect system would scan every mangle CT looking for what marks are used,
+#		and be able to sanely make use of a highly fragmented mark system, using consecutive
+#		marks when possible and scattered marks when not. That's a lot of work.
+#
+#		A less perfect system would scan those, but would either give up if it couldn't find a
+#		nice range to use or would just possibly wrongly assume that any given free mark starts
+#		a block of free marks.
+#
+#		Or we could ask the user to specify this, which might be good anyway if they're going to
+#		build more rules around our rules.
+#
+#		A platinum version of the last solution would ask the user to specify this, and then verify
+#		that their choices are safe (this may be particularly difficult if there are other rules that
+#		build on the rules this tool puts in). 
+#
+#		Or... we could just use the convention that mark=destport. Nice and simple, and we can just
+#		ask users to heed that. Hmm. I like this.
+
 sub main
 {
 my %cfg = handle_args(@ARGV);
@@ -24,6 +46,7 @@ if(	$cfg{cmd} eq 'start')		{dispatch_start(	%cfg);}
 elsif(	$cfg{cmd} eq 'stop')		{dispatch_stop(		%cfg);}
 elsif(	$cfg{cmd} eq 'define')		{dispatch_define(	%cfg);}
 elsif(	$cfg{cmd} eq 'list')		{dispatch_list(		%cfg);}
+elsif(	$cfg{cmd} eq 'stats')		{dispatch_stats(	%cfg);}
 }
 
 sub handle_args
@@ -40,6 +63,7 @@ if($cfg{cmd} eq 'list')
 	}
 elsif(	($cfg{cmd} eq 'start')
 ||	($cfg{cmd} eq 'stop' ) )
+||	($cfg{cmd} eq 'stats') )
 	{ # Take one arg, the name of the service
 	if(@args != 1) {usage();}
 	$cfg{service} = shift(@args);
@@ -59,6 +83,7 @@ sub usage
 die "Usage: wocut COMMAND\n"
 .	"\tCOMMAND is one of:\n"
 .	"\t\tlist\n"
+.	"\t\tstats SERVICE\n"
 .	"\t\tstart SERVICE\n"
 .	"\t\tstop SERVICE\n"
 .	"\t\tdefine SERVICE DEFINITION\n";
@@ -69,6 +94,17 @@ die "Usage: wocut COMMAND\n"
 
 sub dispatch_list
 {
+my %cfg = @_;
+
+my %services = read_services();
+foreach my $service (sort {$a cmp $b} keys %services)
+	{
+
+	}
+}
+
+sub dispatch_stats
+{ # "service" key says which one
 my %cfg = @_;
 }
 
@@ -91,7 +127,12 @@ my %cfg = @_;
 # Handle wocut files
 
 sub read_services
-{ # Read all services from the servicedir into a hash, return that
+{	# Read all services from the servicedir into a hash, return that. Keys are shortnames
+	# The value of that hash is another hash with keys:
+	#	inport
+	#	ports
+	#	description
+	#	proto (tcp or udp usually, likely won't work with anything else)
 
 }
 
@@ -102,7 +143,16 @@ sub save_service
 
 sub _read_service
 { # Read a particular servicefile. 
+my ($infile) = @_;
 
+($infile =~ /^([^.]\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
+$servicename = $1;
+open(my $wofile, $infile) || die "Failed to read wofile [$infile]\n";
+local $/; # Slurp mode
+my $yamlfile = readline($wofile);
+close($wofile);
+my @svcdata = Load($yamlfile);
+# TODO What shall we return? Try "cat sample_wocuts/apache.wocut | ysh" to see what we can get
 }
 
 sub serviceauto_set
@@ -115,4 +165,31 @@ sub serviceautos_read
 
 }
 
+sub service_status
+{
+
+}
+
+sub service_statistics
+{ # Returns usage statistics on the named service based on iptables counters.
+
+}
+
 ###############
+# Handle iptables rules
+
+sub ipt_is_present
+{
+
+}
+
+sub ipt_establish
+{
+
+}
+
+sub _ipt_do
+{
+# my ($table, $chain, $markstart, ...
+}
+
