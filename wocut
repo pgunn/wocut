@@ -4,8 +4,11 @@ use strict;
 use warnings FATAL => qw(all);
 use YAML::XS; # In Debian, you want the libyaml-libyaml-perl package for this.
 
+my $nevermark = 99999; # Mark that we use to discard packets
 my $servicedir = qq{/etc/wocut};
 
+my $debuglvl = 1;
+my $doit = 1;
 main();
 
 ###########################
@@ -62,7 +65,7 @@ if($cfg{cmd} eq 'list')
 	if(@args) {usage();}
 	}
 elsif(	($cfg{cmd} eq 'start')
-||	($cfg{cmd} eq 'stop' ) )
+||	($cfg{cmd} eq 'stop' )
 ||	($cfg{cmd} eq 'stats') )
 	{ # Take one arg, the name of the service
 	if(@args != 1) {usage();}
@@ -145,8 +148,8 @@ sub _read_service
 { # Read a particular servicefile. 
 my ($infile) = @_;
 
-($infile =~ /^([^.]\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
-$servicename = $1;
+($infile =~ /^([^.])\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
+my $servicename = $1;
 open(my $wofile, $infile) || die "Failed to read wofile [$infile]\n";
 local $/; # Slurp mode
 my $yamlfile = readline($wofile);
@@ -185,11 +188,65 @@ sub ipt_is_present
 
 sub ipt_establish
 {
+my ($svcname, %service) = @_;
+my @dports = @{$service{markports}};
+# iptables -t mangle -A PREROUTING -p $service{proto} -m state --state NEW --dport $service{inport} -j MARK --mark-set $dports[0] -m comment --comment "wocut-$svcname: initialmark"
+if($service{blockdirect})
+	{
+	map {_ipt_do("mangle", "PREROUTING", "-p $service{proto} --dport $_ -m mark --mark $nevermark", "wocut-$svcname: blockdirect");} @dports;
+	}
+
+for(my $portiter = 1, my $probiter = @dports; $portiter < @dports; $portiter++,$probiter--)
+	{
+	my $lastmark = $dports[$portiter - 1];
+	my $probslice = 1 - (1/$probiter);
+	_ipt_do("mangle", "PREROUTING", "-p $service{proto} -m mark --mark $lastmark -m statistic --mode random --probability $probslice --set-mark $dports[$portiter]", "wocut-$svcname: remark for port $dports[$portiter]");
+	}
+foreach my $dport (@dports)
+	{
+	_ipt_do("nat", "PREROUTING", "-p $service{proto} -m mark --mark $dport -j REDIRECT --to-port $dport", "wocut-$svcname: redirect");
+	}
+}
+
+sub ipt_remove
+{ # Cleanly remove a wocut ruleset from iptables
 
 }
 
 sub _ipt_do
 {
-# my ($table, $chain, $markstart, ...
+my ($table, $chain, $contents, $comment) = @_;
+docmd("iptables -t $table -A $chain $contents -m comment --comment \"$comment\"");
+}
+
+sub do_nevermark
+{ # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
+foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
+	{
+	_ipt_do("filter", $fchain, "-m mark --mark --nevermark $nevermark -j DROP", "wocut: nevermark");
+	}
+}
+
+#################
+# My normal utilities
+
+
+sub docmd($)
+{
+my ($cmdline) = @_;
+dprint(2, "IPTABLES: [$cmdline]");
+if($doit)
+	{
+	qx/$cmdline/;
+	if($? != 0)
+		{die "************Command failed!**********\n";}
+	}
+}
+
+sub dprint($$)
+{
+my ($loglvl, $msg) = @_;
+if($debuglvl >= $loglvl)
+	{print "$msg\n";}
 }
 
