@@ -48,6 +48,7 @@ my %cfg = handle_args(@ARGV);
 if(	$cfg{cmd} eq 'start')		{dispatch_start(	%cfg);}
 elsif(	$cfg{cmd} eq 'stop')		{dispatch_stop(		%cfg);}
 elsif(	$cfg{cmd} eq 'define')		{dispatch_define(	%cfg);}
+elsif(	$cfg{cmd} eq 'undefine')	{dispatch_undefine(	%cfg);}
 elsif(	$cfg{cmd} eq 'list')		{dispatch_list(		%cfg);}
 elsif(	$cfg{cmd} eq 'stats')		{dispatch_stats(	%cfg);}
 }
@@ -66,6 +67,7 @@ if($cfg{cmd} eq 'list')
 	}
 elsif(	($cfg{cmd} eq 'start')
 ||	($cfg{cmd} eq 'stop' )
+||	($cfg{cmd} eq 'undefine')
 ||	($cfg{cmd} eq 'stats') )
 	{ # Take one arg, the name of the service
 	if(@args != 1) {usage();}
@@ -126,6 +128,11 @@ sub dispatch_define
 my %cfg = @_;
 }
 
+sub dispatch_undefine
+{ # "service" key defines which one. Implies "stop".
+my %cfg = @_;
+}
+
 #################
 # Handle wocut files
 
@@ -136,7 +143,17 @@ sub read_services
 	#	ports
 	#	description
 	#	proto (tcp or udp usually, likely won't work with anything else)
-
+	# TODO: If we want to get fancy, report on potential port conflicts.
+opendir(WODIR, $servicedir) || die "Failed to open wocut servicedir [$servicedir]: $!\n";
+my @servicefiles = 	grep	{/\.wocut$/}
+			readdir(WODIR);
+close(WODIR);
+my %services;
+map	{
+	my ($svc, %cfg) = _read_service($_);
+	$services{$svc} = \%cfg;
+	} @servicefiles;
+return %services;
 }
 
 sub save_service
@@ -154,8 +171,8 @@ open(my $wofile, $infile) || die "Failed to read wofile [$infile]\n";
 local $/; # Slurp mode
 my $yamlfile = readline($wofile);
 close($wofile);
-my @svcdata = Load($yamlfile);
-# TODO What shall we return? Try "cat sample_wocuts/apache.wocut | ysh" to see what we can get
+my $svcdata = Load($yamlfile); # Test with "cat sample_wocuts/apache.wocut | ysh"
+return ($servicename, %$svcdata);
 }
 
 sub serviceauto_set
@@ -169,7 +186,7 @@ sub serviceautos_read
 }
 
 sub service_status
-{
+{ # Report on if service is defined, and if it is, whether it's enabled.
 
 }
 
