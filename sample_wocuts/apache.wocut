@@ -2,6 +2,7 @@
 proto:	tcp
 inport:	80
 description:	HTTP Multiplexer
+blockdirect: true
 markports:
   - 9000
   - 9001
