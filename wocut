@@ -136,7 +136,7 @@ my %cfg = @_;
 #################
 # Handle wocut files
 
-sub read_services
+sub read_services # Status: Done
 {	# Read all services from the servicedir into a hash, return that. Keys are shortnames
 	# The value of that hash is another hash with keys:
 	#	inport
@@ -161,23 +161,12 @@ sub save_service
 
 }
 
-sub _read_service
-{ # Read a particular servicefile. 
-my ($infile) = @_;
-
-($infile =~ /^([^.])\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
-my $servicename = $1;
-open(my $wofile, $infile) || die "Failed to read wofile [$infile]\n";
-local $/; # Slurp mode
-my $yamlfile = readline($wofile);
-close($wofile);
-my $svcdata = Load($yamlfile); # Test with "cat sample_wocuts/apache.wocut | ysh"
-return ($servicename, %$svcdata);
-}
-
 sub serviceauto_set
 {
-
+my ($svc, $truefalse) = @_;
+my %data = _read_service("$servicedir/$svc.wocut");
+$data{auto} = $truefalse ? 1 : 0;
+_write_service("$servicedir/$svc.wocut", %data);
 }
 
 sub serviceautos_read
@@ -192,7 +181,31 @@ sub service_status
 
 sub service_statistics
 { # Returns usage statistics on the named service based on iptables counters.
+my ($svcname) = @_;
 
+# my @lines = grep {/wocut-$svcname:/} }
+#	system("iptables -t nat -v -n -L PREROUTING");
+## Do we want to report these on a per-rule basis or on the service as a whole? Guessing the latter. Probably.
+## Could do both. I suspect we only get the first packets based on how the nat tables work anyhow; could insert more
+## rules to get the actual throughput, but that'd probably not be worth the performance or complexity cost.
+## Need to think more about how this should work.
+}
+
+sub _read_service # Status: Done
+{ # Read a particular servicefile. 
+my ($infile) = @_;
+
+($infile =~ /^([^.])\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
+my $servicename = $1;
+my $svcdata = LoadFile($infile) || die "Failed to read wofile [$infile]\n";
+return ($servicename, %$svcdata);
+}
+
+sub _write_service # Status: Untested.
+{ # Save YAML to a service file.
+my ($file, %data) = @_;
+
+DumpFile($file, \%data) || die "Failed to write wofile [$file]\n";
 }
 
 ###############
