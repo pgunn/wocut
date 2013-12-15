@@ -156,12 +156,12 @@ map	{
 return %services;
 }
 
-sub save_service
+sub save_service # Status: TODO
 { # Save a service the user has provided via CLI into the servicedir
 
 }
 
-sub serviceauto_set
+sub serviceauto_set # Status: done
 {
 my ($svc, $truefalse) = @_;
 my %data = _read_service("$servicedir/$svc.wocut");
@@ -169,18 +169,38 @@ $data{auto} = $truefalse ? 1 : 0;
 _write_service("$servicedir/$svc.wocut", %data);
 }
 
-sub serviceautos_read
+sub serviceautos_read # Status: done
 {
-
+my ($svc) = @_;
+my %data = _read_service("$servicedir/$svc.wocut");
+return $data{auto};
 }
 
-sub service_status
+sub service_status # Status: done
 { # Report on if service is defined, and if it is, whether it's enabled.
+	# This doesn't guarantee the service is working; it only checks
+	# One rule in the chain. If users go in and add/delete/change rules, they're on their own.
+	# Returns:
+	#	0 - If the service is not defined
+	#	1 - If the service is defined but not active
+	#	2 - If the service is defined and active
 
+my ($svcname) = @_;
+
+my %allsvc = read_services();
+if(defined $allsvc{$svcname})
+	{
+	if(grep{/wocut-$svcname:/} qx/iptables -t nat -v -n -L PREROUTING/)
+		{return 2;}
+	else	{return 1;}
+	}
+return 0; # Service is not defined.
 }
 
-sub service_statistics
+sub service_statistics # Done for now, improvements pending
 { # Returns usage statistics on the named service based on iptables counters.
+	# TODO: Offer the option of inserting no-target rules in the raw table to actually count
+	#	traffic. When we do that, we can look for those here.
 my ($svcname) = @_;
 
 my @lines = grep {/wocut-$svcname:/}
@@ -188,13 +208,25 @@ my @lines = grep {/wocut-$svcname:/}
 	grep {! /^Chain/}
 	qx/iptables -t nat -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
 
-	# So now @lines will be of format:
-	# $packets $bytes $RULE
-	#
-	# We need to figure out which lines we want to report on, particularly whether we want to stick with
-	# the nat table rules or switch to the mangle table ones (and if the latter, which related lines to
-	# summarise. 
+# So now @lines will be of format:
+# $packets $bytes $RULE
+my ($remarkline) = grep {/wocut-$svcname: initialmark/} @lines;
+my @redirlines = grep {/wocut-$svcname: redirect/} @lines;
 
+# Looking at the packets listing will give us an estimate for the number of connections routed
+# through this mechanism. The bytes metric here is useless, as it only shows bytes from initial packets.
+
+my ($ipackets) = split(/\s+/, $remarkline);
+my %sstats;
+foreach my $redirline (@redirlines)
+	{
+	my ($rpackets) = split(/\s+/, $redirline);
+	$redirline =~ /redirect to port (\d+)/;
+	my $rport = $1;
+	$sstats{$rport} = $rpackets;
+	}
+return (	totalpackets => $ipackets,
+		details => \%sstats);
 }
 
 sub _read_service # Status: Done
@@ -233,10 +265,10 @@ sub ipt_establish # Done, Please test!
 {
 my ($svcname, %service) = @_;
 my @dports = @{$service{markports}};
-# iptables -t mangle -A PREROUTING -p $service{proto} -m state --state NEW --dport $service{inport} -j MARK --mark-set $dports[0] -m comment --comment "wocut-$svcname: initialmark"
+_ipt_do("mangle", "PREROUTING", "-p $service{proto} --state NEW --dport $service{inport} -j MARK --set-mark $dports[0]", "wocut-$svcname: initialmark");
 if($service{blockdirect})
 	{
-	map {_ipt_do("mangle", "PREROUTING", "-p $service{proto} --dport $_ -m mark --mark $nevermark", "wocut-$svcname: blockdirect");} @dports;
+	map {_ipt_do("mangle", "PREROUTING", "-p $service{proto} --dport $_ -m mark --set-mark $nevermark", "wocut-$svcname: blockdirect");} @dports;
 	}
 
 for(my $portiter = 1, my $probiter = @dports; $portiter < @dports; $portiter++,$probiter--)
@@ -247,7 +279,7 @@ for(my $portiter = 1, my $probiter = @dports; $portiter < @dports; $portiter++,$
 	}
 foreach my $dport (@dports)
 	{
-	_ipt_do("nat", "PREROUTING", "-p $service{proto} -m mark --mark $dport -j REDIRECT --to-port $dport", "wocut-$svcname: redirect");
+	_ipt_do("nat", "PREROUTING", "-p $service{proto} -m mark --mark $dport -j REDIRECT --to-port $dport", "wocut-$svcname: redirect to port $dport");
 	}
 }
 
