@@ -143,6 +143,7 @@ sub read_services # Status: Done
 	#	ports
 	#	description
 	#	proto (tcp or udp usually, likely won't work with anything else)
+	#	auto
 	# TODO: If we want to get fancy, report on potential port conflicts.
 opendir(WODIR, $servicedir) || die "Failed to open wocut servicedir [$servicedir]: $!\n";
 my @servicefiles = 	grep	{/\.wocut$/}
@@ -156,9 +157,11 @@ map	{
 return %services;
 }
 
-sub save_service # Status: TODO
-{ # Save a service the user has provided via CLI into the servicedir
+sub save_service # Status: done
+{	# Save a service the user has provided via CLI into the servicedir
+my ($svcname, %cfg) = @_;
 
+_write_service("$servicedir/$svcname.wocut", %cfg);
 }
 
 sub serviceauto_set # Status: done
