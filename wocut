@@ -188,10 +188,13 @@ my @lines = grep {/wocut-$svcname:/}
 	grep {! /^Chain/}
 	qx/iptables -t nat -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
 
-## Do we want to report these on a per-rule basis or on the service as a whole? Guessing the latter. Probably.
-## Could do both. I suspect we only get the first packets based on how the nat tables work anyhow; could insert more
-## rules to get the actual throughput, but that'd probably not be worth the performance or complexity cost.
-## Need to think more about how this should work.
+	# So now @lines will be of format:
+	# $packets $bytes $RULE
+	#
+	# We need to figure out which lines we want to report on, particularly whether we want to stick with
+	# the nat table rules or switch to the mangle table ones (and if the latter, which related lines to
+	# summarise. 
+
 }
 
 sub _read_service # Status: Done
