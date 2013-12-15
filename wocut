@@ -183,8 +183,11 @@ sub service_statistics
 { # Returns usage statistics on the named service based on iptables counters.
 my ($svcname) = @_;
 
-# my @lines = grep {/wocut-$svcname:/} }
-#	system("iptables -t nat -v -n -L PREROUTING");
+my @lines = grep {/wocut-$svcname:/}
+	map {s/^\s+//}
+	grep {! /^Chain/}
+	qx/iptables -t nat -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
+
 ## Do we want to report these on a per-rule basis or on the service as a whole? Guessing the latter. Probably.
 ## Could do both. I suspect we only get the first packets based on how the nat tables work anyhow; could insert more
 ## rules to get the actual throughput, but that'd probably not be worth the performance or complexity cost.
@@ -223,7 +226,7 @@ map	{
 return 0;
 }
 
-sub ipt_establish
+sub ipt_establish # Done, Please test!
 {
 my ($svcname, %service) = @_;
 my @dports = @{$service{markports}};
@@ -245,7 +248,7 @@ foreach my $dport (@dports)
 	}
 }
 
-sub ipt_remove
+sub ipt_remove # Done
 { # Cleanly remove a wocut ruleset from iptables
 my ($svcname) = @_;
 
@@ -261,13 +264,13 @@ map	{
 	} grep{/wocut-$svcname:/} @rules_nat;
 }
 
-sub _ipt_do
+sub _ipt_do # Done
 {
 my ($table, $chain, $contents, $comment) = @_;
 docmd("iptables -t $table -A $chain $contents -m comment --comment \"$comment\"");
 }
 
-sub do_nevermark
+sub do_nevermark # Done
 { # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
 foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
 	{
@@ -297,4 +300,17 @@ my ($loglvl, $msg) = @_;
 if($debuglvl >= $loglvl)
 	{print "$msg\n";}
 }
+
+###################
+# It'd be nice to have a set of utility functions that would just parse iptables output, to reduce code duplication.
+# Pity the output is so unstructured.
+# If we really want to do this right, we need to either:
+#	1) always pass the same arguments to iptables to get this information
+#		and not cut bits out before handing them to these functions, or
+# 	2) Develop and stick to a terminology for the structures we expect are in the string
+#
+#	To be clear, we're talking about things like -v, -n, and --line-numbers
+
+# sub ipt_hash
+# ...
 
