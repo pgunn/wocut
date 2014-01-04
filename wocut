@@ -312,8 +312,19 @@ sub do_nevermark # Done
 { # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
 foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
 	{
-	_ipt_do("filter", $fchain, "-m mark --mark --nevermark $nevermark -j DROP", "wocut: nevermark");
+	if(! ipt_rule_present("wocut: nevermark", "filter", $fchain))
+		{
+		_ipt_do("filter", $fchain, "-m mark --mark --nevermark $nevermark -j DROP", "wocut: nevermark");
+		}
 	}
+}
+
+sub ipt_rule_present
+{ # Is a rule with the given ruleid (comment) present in the named table/chain?
+my ($ruleid, $table, $chain) = @_;
+
+my @rules = `iptables -v -n -L $chain -t $table`;
+return scalar grep(/$ruleid/,@rules);
 }
 
 #################
