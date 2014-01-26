@@ -136,7 +136,16 @@ else
 #TODO: dispatch_define - what syntax is best?
 sub dispatch_define
 { # "service" key says which one, "definition" key is a listref that defines the service.
+# What kind of syntax is best?
+#	wocut define apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+# or
+#	wocut define apache auto=on allowdirect=false port=80 proto=tcp dport=4113,4114,4115
+# or
+#	wocut define apache:auto:nodirect:port=80:proto=tcp:dport=4113,4114,4115
+# or....
+
 my %cfg = @_;
+
 }
 
 sub dispatch_undefine
