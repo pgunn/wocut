@@ -89,9 +89,12 @@ foreach my $service (sort {$a cmp $b} keys %services)
 	}
 }
 
+#TODO: Is it worth doing this without the RAW rules we need to get more than initial-packet info?
 sub dispatch_stats
 { # "service" key says which one
 my %cfg = @_;
+my %iconn_data = service_statistics($cfg{service});
+
 }
 
 sub dispatch_start
@@ -130,6 +133,7 @@ else
 	{die "Internal error: Unknown status for service\n";}
 }
 
+#TODO: dispatch_define - what syntax is best?
 sub dispatch_define
 { # "service" key says which one, "definition" key is a listref that defines the service.
 my %cfg = @_;
@@ -138,6 +142,12 @@ my %cfg = @_;
 sub dispatch_undefine
 { # "service" key defines which one. Implies "stop".
 my %cfg = @_;
+
+my $status = service_status($cfg{service});
+if($status == 2)
+	{dispatch_stop(%cfg);} # FIXME Add additional layer so dispatch functions don't call dispatch functions
+
+unlink("$servicedir/$cfg{service}.wocut");
 }
 
 #################
