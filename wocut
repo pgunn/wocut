@@ -77,13 +77,15 @@ die "Usage: wocut COMMAND\n"
 # Dispatch functions
 
 sub dispatch_list
-{
+{ # List with details. Do we want a shortlist command too?
 my %cfg = @_;
 
 my %services = read_services();
 foreach my $service (sort {$a cmp $b} keys %services)
 	{
-
+	print "Service: $service\n";
+	print join("\n", map{"\t$_ => $services{$service}{$_}";} keys %{$services{$service}});
+	print "\n\n";
 	}
 }
 
@@ -95,11 +97,37 @@ my %cfg = @_;
 sub dispatch_start
 { # "service" key says which one
 my %cfg = @_;
+my $status = service_status($cfg{service});
+if($status == 0)
+	{die "Service not found\n";}
+elsif($status == 2)
+	{die "Service already started\n";}
+elsif($status == 1)
+	{
+	my %svcdata = read_services();
+	ipt_establish($cfg{service}, $svcdata{$cfg{service}});
+	print "Started\n";
+	}
+else
+	{die "Internal error: Unknown status for service\n";}
 }
 
 sub dispatch_stop
 { # "service" key says which one
 my %cfg = @_;
+my $status = service_status($cfg{service});
+if($status == 0)
+	{die "Service not found\n";}
+elsif($status == 1)
+	{die "Service not running\n";}
+elsif($status == 2)
+	{
+	my %svcdata = read_services();
+	ipt_remove($cfg{service}, $svcdata{$cfg{service}});
+	print "Stopped\n";
+	}
+else
+	{die "Internal error: Unknown status for service\n";}
 }
 
 sub dispatch_define
