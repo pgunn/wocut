@@ -21,27 +21,6 @@ main();
 # Thanks to the #iptables channel for informing me of the feature
 # this depends on.
 
-##############
-# Current stumpers:
-#	How do we want to manage mark allocation?
-#		A perfect system would scan every mangle CT looking for what marks are used,
-#		and be able to sanely make use of a highly fragmented mark system, using consecutive
-#		marks when possible and scattered marks when not. That's a lot of work.
-#
-#		A less perfect system would scan those, but would either give up if it couldn't find a
-#		nice range to use or would just possibly wrongly assume that any given free mark starts
-#		a block of free marks.
-#
-#		Or we could ask the user to specify this, which might be good anyway if they're going to
-#		build more rules around our rules.
-#
-#		A platinum version of the last solution would ask the user to specify this, and then verify
-#		that their choices are safe (this may be particularly difficult if there are other rules that
-#		build on the rules this tool puts in). 
-#
-#		Or... we could just use the convention that mark=destport. Nice and simple, and we can just
-#		ask users to heed that. Hmm. I like this.
-
 sub main
 {
 my %cfg = handle_args(@ARGV);
@@ -136,7 +115,7 @@ my %cfg = @_;
 #################
 # Handle wocut files
 
-sub read_services # Status: Done
+sub read_services
 {	# Read all services from the servicedir into a hash, return that. Keys are shortnames
 	# The value of that hash is another hash with keys:
 	#	inport
@@ -157,14 +136,14 @@ map	{
 return %services;
 }
 
-sub save_service # Status: done
+sub save_service
 {	# Save a service the user has provided via CLI into the servicedir
 my ($svcname, %cfg) = @_;
 
 _write_service("$servicedir/$svcname.wocut", %cfg);
 }
 
-sub serviceauto_set # Status: done
+sub serviceauto_set
 {
 my ($svc, $truefalse) = @_;
 my %data = _read_service("$servicedir/$svc.wocut");
@@ -172,14 +151,14 @@ $data{auto} = $truefalse ? 1 : 0;
 _write_service("$servicedir/$svc.wocut", %data);
 }
 
-sub serviceautos_read # Status: done
+sub serviceautos_read
 {
 my ($svc) = @_;
 my %data = _read_service("$servicedir/$svc.wocut");
 return $data{auto};
 }
 
-sub service_status # Status: done
+sub service_status
 { # Report on if service is defined, and if it is, whether it's enabled.
 	# This doesn't guarantee the service is working; it only checks
 	# One rule in the chain. If users go in and add/delete/change rules, they're on their own.
@@ -200,7 +179,7 @@ if(defined $allsvc{$svcname})
 return 0; # Service is not defined.
 }
 
-sub service_statistics # Done for now, improvements pending
+sub service_statistics
 { # Returns usage statistics on the named service based on iptables counters.
 	# TODO: Offer the option of inserting no-target rules in the raw table to actually count
 	#	traffic. When we do that, we can look for those here.
@@ -232,7 +211,7 @@ return (	totalpackets => $ipackets,
 		details => \%sstats);
 }
 
-sub _read_service # Status: Done
+sub _read_service
 { # Read a particular servicefile. 
 my ($infile) = @_;
 
@@ -242,7 +221,7 @@ my $svcdata = LoadFile($infile) || die "Failed to read wofile [$infile]\n";
 return ($servicename, %$svcdata);
 }
 
-sub _write_service # Status: Untested.
+sub _write_service
 { # Save YAML to a service file.
 my ($file, %data) = @_;
 
@@ -264,7 +243,7 @@ map	{
 return 0;
 }
 
-sub ipt_establish # Done, Please test!
+sub ipt_establish
 {
 my ($svcname, %service) = @_;
 my @dports = @{$service{markports}};
@@ -286,7 +265,7 @@ foreach my $dport (@dports)
 	}
 }
 
-sub ipt_remove # Done
+sub ipt_remove
 { # Cleanly remove a wocut ruleset from iptables
 my ($svcname) = @_;
 
@@ -302,13 +281,13 @@ map	{
 	} grep{/wocut-$svcname:/} @rules_nat;
 }
 
-sub _ipt_do # Done
+sub _ipt_do
 {
 my ($table, $chain, $contents, $comment) = @_;
 docmd("iptables -t $table -A $chain $contents -m comment --comment \"$comment\"");
 }
 
-sub do_nevermark # Done
+sub do_nevermark
 { # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
 foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
 	{
