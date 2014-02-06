@@ -2,7 +2,8 @@
 
 use strict;
 use warnings FATAL => qw(all);
-use YAML::XS; # In Debian, you want the libyaml-libyaml-perl package for this.
+use YAML::XS qw/Dump Load DumpFile LoadFile/; # In Debian, you want the libyaml-libyaml-perl package for this.
+$YAML::XS::QuoteNumericStrings=0;
 
 my $nevermark = 99999; # Mark that we use to discard packets
 my $servicedir = qq{/etc/wocut};
@@ -133,7 +134,6 @@ else
 	{die "Internal error: Unknown status for service\n";}
 }
 
-#TODO: dispatch_define - what syntax is best?
 sub dispatch_define1
 { # "service" key says which one, "definition" key is a listref that defines the service.
 # What kind of syntax is best?
