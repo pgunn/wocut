@@ -8,7 +8,7 @@ $YAML::XS::QuoteNumericStrings=0;
 my $nevermark = 99999; # Mark that we use to discard packets
 my $servicedir = qq{/etc/wocut};
 
-my $debuglvl = 1;
+my $debuglvl = 5;
 my $doit = 1;
 main();
 
@@ -109,7 +109,7 @@ elsif($status == 2)
 elsif($status == 1)
 	{
 	my %svcdata = read_services();
-	ipt_establish($cfg{service}, $svcdata{$cfg{service}});
+	ipt_establish($cfg{service}, %{$svcdata{$cfg{service}}});
 	print "Started\n";
 	}
 else
@@ -207,10 +207,11 @@ sub read_services
 opendir(WODIR, $servicedir) || die "Failed to open wocut servicedir [$servicedir]: $!\n";
 my @servicefiles = 	grep	{/\.wocut$/}
 			readdir(WODIR);
+print "D: Parsing " . join(',', @servicefiles) . "\n";
 close(WODIR);
 my %services;
 map	{
-	my ($svc, %cfg) = _read_service($_);
+	my ($svc, %cfg) = _read_service("$servicedir/$_");
 	$services{$svc} = \%cfg;
 	} @servicefiles;
 return %services;
@@ -295,7 +296,7 @@ sub _read_service
 { # Read a particular servicefile. 
 my ($infile) = @_;
 
-($infile =~ /^([^.])\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
+($infile =~ /.*\/([^.]+)\.wocut$/) || die "Internal error: Can't parse servicename for [$infile]\n";
 my $servicename = $1;
 my $svcdata = LoadFile($infile) || die "Failed to read wofile [$infile]\n";
 return ($servicename, %$svcdata);
@@ -327,17 +328,17 @@ sub ipt_establish
 {
 my ($svcname, %service) = @_;
 my @dports = @{$service{markports}};
-_ipt_do("mangle", "PREROUTING", "-p $service{proto} --state NEW --dport $service{inport} -j MARK --set-mark $dports[0]", "wocut-$svcname: initialmark");
+_ipt_do("mangle", "PREROUTING", "-p $service{proto} -m state --state NEW --dport $service{inport} -j MARK --set-mark $dports[0]", "wocut-$svcname: initialmark");
 if($service{blockdirect})
 	{
-	map {_ipt_do("mangle", "PREROUTING", "-p $service{proto} --dport $_ -m mark --set-mark $nevermark", "wocut-$svcname: blockdirect");} @dports;
+	map {_ipt_do("mangle", "PREROUTING", "-p $service{proto} --dport $_ -j MARK --set-mark $nevermark", "wocut-$svcname: blockdirect");} @dports;
 	}
 
 for(my $portiter = 1, my $probiter = @dports; $portiter < @dports; $portiter++,$probiter--)
 	{
 	my $lastmark = $dports[$portiter - 1];
 	my $probslice = 1 - (1/$probiter);
-	_ipt_do("mangle", "PREROUTING", "-p $service{proto} -m mark --mark $lastmark -m statistic --mode random --probability $probslice --set-mark $dports[$portiter]", "wocut-$svcname: remark for port $dports[$portiter]");
+	_ipt_do("mangle", "PREROUTING", "-p $service{proto} -m mark --mark $lastmark -m statistic --mode random --probability $probslice -j MARK --set-mark $dports[$portiter]", "wocut-$svcname: remark for port $dports[$portiter]");
 	}
 foreach my $dport (@dports)
 	{
