@@ -26,7 +26,7 @@ sub main
 my %cfg = handle_args(@ARGV);
 if(	$cfg{cmd} eq 'start')		{dispatch_start(	%cfg);}
 elsif(	$cfg{cmd} eq 'stop')		{dispatch_stop(		%cfg);}
-elsif(	$cfg{cmd} eq 'define')		{dispatch_define(	%cfg);}
+elsif(	$cfg{cmd} eq 'define1')		{dispatch_define1(	%cfg);}
 elsif(	$cfg{cmd} eq 'undefine')	{dispatch_undefine(	%cfg);}
 elsif(	$cfg{cmd} eq 'list')		{dispatch_list(		%cfg);}
 elsif(	$cfg{cmd} eq 'stats')		{dispatch_stats(	%cfg);}
@@ -52,7 +52,7 @@ elsif(	($cfg{cmd} eq 'start')
 	if(@args != 1) {usage();}
 	$cfg{service} = shift(@args);
 	}
-elsif($cfg{cmd} eq 'define')
+elsif($cfg{cmd} eq 'define1')
 	{ # Take service name and a definition (many components, defer parsing)
 	if(@args < 2) {usage();}
 	$cfg{service} = shift(@args);
@@ -70,7 +70,7 @@ die "Usage: wocut COMMAND\n"
 .	"\t\tstats SERVICE\n"
 .	"\t\tstart SERVICE\n"
 .	"\t\tstop SERVICE\n"
-.	"\t\tdefine SERVICE DEFINITION\n";
+.	"\t\tdefine1 SERVICE DEFINITION\n";
 }
 
 ################
@@ -134,18 +134,50 @@ else
 }
 
 #TODO: dispatch_define - what syntax is best?
-sub dispatch_define
+sub dispatch_define1
 { # "service" key says which one, "definition" key is a listref that defines the service.
 # What kind of syntax is best?
-#	wocut define apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+#	wocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
 # or
 #	wocut define apache auto=on allowdirect=false port=80 proto=tcp dport=4113,4114,4115
 # or
 #	wocut define apache:auto:nodirect:port=80:proto=tcp:dport=4113,4114,4115
 # or....
+# Let's just go with the first for now. Tired of indecision. In fact, we'll call this "define1"
+#	and maybe allow other syntaces with "defineX". Take that, second guessing myself!
+#
+# Our goal in this function is to parse the CLI into the same structures used for read_services()
+# and then to call save_service.
 
 my %cfg = @_;
+my %service; # Used to hold the definition we're building
 
+$service{auto} = 0;
+$service{blockdirect} = 0;
+
+if(${$cfg{definition}}[0] eq "auto")
+	{
+	shift(@{$cfg{definition}}); # Remove it for easy parsing
+	$service{auto} = 1;
+	}
+if(${$cfg{definition}}[0] eq "nodirect")
+	{
+	shift(@{$cfg{definition}}); # Remove it for easy parsing
+	$service{blockdirect} = 1;
+	}
+my ($indef, $to, @ports) = @{$cfg{definition}};
+if($to ne 'to') {die "Invalid syntax for service definition\n";} # Sanity check
+$indef =~ /^(\d+)\/(\w+)$/;
+my ($inport, $proto) = ($1, $2);
+if(	($proto eq 'tcp')
+||	($proto eq 'udp'))
+	{$service{proto} = $proto;}
+else	{die "Invalid syntax for service definition\n";}
+# XXX Option: Check port range for inclusion, for both in and out.
+$service{inport} = $inport;
+$service{markports} = \@ports;
+
+save_service($cfg{service}, %service);
 }
 
 sub dispatch_undefine
@@ -170,6 +202,7 @@ sub read_services
 	#	description
 	#	proto (tcp or udp usually, likely won't work with anything else)
 	#	auto
+	#	blockdirect
 	# TODO: If we want to get fancy, report on potential port conflicts.
 opendir(WODIR, $servicedir) || die "Failed to open wocut servicedir [$servicedir]: $!\n";
 my @servicefiles = 	grep	{/\.wocut$/}
