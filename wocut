@@ -8,7 +8,7 @@ $YAML::XS::QuoteNumericStrings=0;
 my $nevermark = 99999; # Mark that we use to discard packets
 my $servicedir = qq{/etc/wocut};
 
-my $debuglvl = 1;
+my $debuglvl = 0;
 my $doit = 1;
 main();
 
@@ -119,6 +119,7 @@ elsif($status == 2)
 	{die "Service already started\n";}
 elsif($status == 1)
 	{
+	do_nevermark(); # Always install this.
 	my %svcdata = read_services();
 	ipt_establish($cfg{service}, %{$svcdata{$cfg{service}}});
 	print "Started\n";
@@ -363,14 +364,18 @@ my ($svcname) = @_;
 
 my @rules_mangle	= `iptables -v -n --line-numbers -L PREROUTING -t mangle`;
 my @rules_nat		= `iptables -v -n --line-numbers -L PREROUTING -t nat`;
+dprint(2, "ipt_remove asked to remove service $svcname\n");
+# There problem with doing this forward-iteratively with a map is that each deletion changes future indices.
+# So instead, we find the rules that match our service, extract the line numbers from them,
+# reverse-sort them, and then remove them last-first, so all the indices remain valid until
+# they're removed. 
+
 map	{
-	my ($ruleno) = split(/\s+/);
-	system("iptables -t mangle -D $ruleno");
-	} grep{/wocut-$svcname:/} @rules_mangle;
+	system("iptables -t mangle -D PREROUTING $_");
+	} sort {$b <=> $a} map {(split(/\s+/))[0]} grep{/wocut-$svcname:/} @rules_mangle;
 map	{
-	my ($ruleno) = split(/\s+/);
-	system("iptables -t nat -D $ruleno");
-	} grep{/wocut-$svcname:/} @rules_nat;
+	system("iptables -t nat -D PREROUTING $_");
+	}  sort {$b <=> $a} map {(split(/\s+/))[0]} grep{/wocut-$svcname:/} @rules_nat;
 }
 
 sub _ipt_do
@@ -385,7 +390,7 @@ foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
 	{
 	if(! ipt_rule_present("wocut: nevermark", "filter", $fchain))
 		{
-		_ipt_do("filter", $fchain, "-m mark --mark --nevermark $nevermark -j DROP", "wocut: nevermark");
+		_ipt_do("filter", $fchain, "-m mark --mark $nevermark -j DROP", "wocut: nevermark");
 		}
 	}
 }
