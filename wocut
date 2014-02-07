@@ -8,7 +8,7 @@ $YAML::XS::QuoteNumericStrings=0;
 my $nevermark = 99999; # Mark that we use to discard packets
 my $servicedir = qq{/etc/wocut};
 
-my $debuglvl = 5;
+my $debuglvl = 1;
 my $doit = 1;
 main();
 
@@ -78,14 +78,22 @@ die "Usage: wocut COMMAND\n"
 # Dispatch functions
 
 sub dispatch_list
-{ # List with details. Do we want a shortlist command too?
+{	# List with details. Do we want a shortlist command too?
+	# XXX Is it best to have a data-neutral display like this,
+	#	or would it be better to make a custom display with
+	#	ordered keys?
 my %cfg = @_;
 
 my %services = read_services();
 foreach my $service (sort {$a cmp $b} keys %services)
 	{
 	print "Service: $service\n";
-	print join("\n", map{"\t$_ => $services{$service}{$_}";} keys %{$services{$service}});
+	print join("\n", map	{
+				"\t$_\t => "
+.				(ref($services{$service}{$_}) eq 'ARRAY' ?
+				join(", ", @{$services{$service}{$_}})
+:				$services{$service}{$_});
+				} keys %{$services{$service}});
 	print "\n\n";
 	}
 }
@@ -207,7 +215,7 @@ sub read_services
 opendir(WODIR, $servicedir) || die "Failed to open wocut servicedir [$servicedir]: $!\n";
 my @servicefiles = 	grep	{/\.wocut$/}
 			readdir(WODIR);
-print "D: Parsing " . join(',', @servicefiles) . "\n";
+dprint(2,"D: Parsing " . join(',', @servicefiles) . "\n");
 close(WODIR);
 my %services;
 map	{
