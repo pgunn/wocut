@@ -103,10 +103,16 @@ foreach my $service (sort {$a cmp $b} keys %services)
 
 #TODO: Is it worth doing this without the RAW rules we need to get more than initial-packet info?
 sub dispatch_stats
-{ # "service" key says which one
+{	# "service" key says which one
+	# FIXME: This really is shoddy statistics
 my %cfg = @_;
 my %iconn_data = service_statistics($cfg{service});
-
+print "Total connections initiated: " . $iconn_data{totalpackets} . "\n";
+print "\t(Following table does not include the first target port)\n";
+foreach my $port (sort {$a <=> $b} keys %{$iconn_data{details}})
+	{
+	print "\tSent to port $port: " . $iconn_data{details}{$port} . "\n";
+	}
 }
 
 sub dispatch_start
@@ -279,14 +285,14 @@ sub service_statistics
 my ($svcname) = @_;
 
 my @lines = grep {/wocut-$svcname:/}
-	map {s/^\s+//}
+	map {s/^\s+//; $_} # Remove the pre-padding
 	grep {! /^Chain/}
-	qx/iptables -t nat -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
+	qx/iptables -t mangle -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
 
 # So now @lines will be of format:
 # $packets $bytes $RULE
 my ($remarkline) = grep {/wocut-$svcname: initialmark/} @lines;
-my @redirlines = grep {/wocut-$svcname: redirect/} @lines;
+my @redirlines = grep {/wocut-$svcname: remark/} @lines;
 
 # Looking at the packets listing will give us an estimate for the number of connections routed
 # through this mechanism. The bytes metric here is useless, as it only shows bytes from initial packets.
@@ -296,7 +302,7 @@ my %sstats;
 foreach my $redirline (@redirlines)
 	{
 	my ($rpackets) = split(/\s+/, $redirline);
-	$redirline =~ /redirect to port (\d+)/;
+	$redirline =~ /remark for port (\d+)/;
 	my $rport = $1;
 	$sstats{$rport} = $rpackets;
 	}
