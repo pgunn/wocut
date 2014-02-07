@@ -71,7 +71,10 @@ die "Usage: wocut COMMAND\n"
 .	"\t\tstats SERVICE\n"
 .	"\t\tstart SERVICE\n"
 .	"\t\tstop SERVICE\n"
-.	"\t\tdefine1 SERVICE DEFINITION\n";
+.	"\t\tdefine1 SERVICE DEFINITION\n"
+.	"\t\tundefine SERVICE\n\n"
+.	"A service might be defined as follows:\n"
+.	"\twocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115\n";
 }
 
 ################
