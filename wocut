@@ -103,6 +103,9 @@ die "\n";
 #	cause those sanity checks to happen, they should do them themselves.
 #	The buck stops here. Ape shall never kill ape.
 #	Note: You really, really should do lots of sanity checking here.
+#	It is absolutely ok to dispatch right to a do_ function without doing anything.
+#	Anything that would not concievably be called by anything but the central dispatch
+#	doesn't need a do_ function.
 
 sub dispatch_list
 {	# List with details. Do we want a shortlist command too?
@@ -139,6 +142,7 @@ foreach my $port (sort {$a <=> $b} keys %{$iconn_data{details}})
 	}
 }
 
+# Converted
 sub dispatch_start
 { # "service" key says which one
 my %cfg = @_;
@@ -149,15 +153,14 @@ elsif($status == 2)
 	{die "Service already started\n";}
 elsif($status == 1)
 	{
-	do_nevermark(); # Always install this.
-	my %svcdata = read_services();
-	ipt_establish($cfg{service}, %{$svcdata{$cfg{service}}});
+	do_start($cfg{service});
 	print "Started\n";
 	}
 else
 	{die "Internal error: Unknown status for service\n";}
 }
 
+# Converted
 sub dispatch_stop
 { # "service" key says which one
 my %cfg = @_;
@@ -168,8 +171,7 @@ elsif($status == 1)
 	{die "Service not running\n";}
 elsif($status == 2)
 	{
-	my %svcdata = read_services();
-	ipt_remove($cfg{service}, $svcdata{$cfg{service}});
+	do_stop($cfg{service});
 	print "Stopped\n";
 	}
 else
@@ -222,15 +224,18 @@ $service{markports} = \@ports;
 save_service($cfg{service}, %service);
 }
 
+# Converted
 sub dispatch_undefine
 { # "service" key defines which one. Implies "stop".
 my %cfg = @_;
 
 my $status = service_status($cfg{service});
-if($status == 2)
-	{dispatch_stop(%cfg);} # FIXME Add additional layer so dispatch functions don't call dispatch functions
+if($status == 0)
+	{die "Could not find service [" . $cfg{service} . "]\n";}
+elsif($status == 2)
+	{do_stop($cfg{service});} # Stop it before we remove it
 
-unlink("$servicedir/$cfg{service}.wocut");
+do_undefine($cfg{service});
 }
 
 sub dispatch_svcstart
@@ -240,7 +245,7 @@ sub dispatch_svcstart
 	#	and ape shall never kill ape
 my %svcs = read_services();
 map	{
-	dispatch_start(service => $_);
+	do_start($_);
 	}
 	grep	{ # Select those set to autostart
 		$svcs{$_}{auto};
@@ -248,18 +253,11 @@ map	{
 		(keys %svcs);
 }
 
+# Converted
 sub dispatch_svcstop
 {	# Stop all instances.
 	# Doesn't take arguments.
-	# FIXME: We need another layer below the dispatch functions so dispatch never calls dispatch
-	#	and ape shall never kill ape
-my %svcs = read_services();
-map	{
-	dispatch_stop(service => $_);
-	}
-	grep	{ # select actives only
-		(service_status($_) == 2) ? 1 : 0;
-		} (keys %svcs);
+do_svcstop();
 }
 
 #################
@@ -279,12 +277,17 @@ sub do_stats
 
 sub do_start
 {
-
+my ($service) = @_;
+do_nevermark();
+my %svcdata = read_services();
+ipt_establish($service, %{$svcdata{$service}});
 }
 
 sub do_stop
 {
-
+my ($service) = @_;
+my %svcdata = read_services();
+ipt_remove($service, $svcdata{$service});
 }
 
 sub do_define1
@@ -294,17 +297,20 @@ sub do_define1
 
 sub do_undefine
 {
-
+my ($service) = @_;
+# TODO: Yell if it's not already there
+unlink("$servicedir/$service.wocut");
 }
 
-sub do_svcstart
-{
-
-}
-
-sub do_svcstop
-{
-
+sub do_nevermark
+{ # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
+foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
+	{
+	if(! ipt_rule_present("wocut: nevermark", "filter", $fchain))
+		{
+		_ipt_do("filter", $fchain, "-m mark --mark $nevermark -j DROP", "wocut: nevermark");
+		}
+	}
 }
 
 #################
@@ -488,17 +494,6 @@ sub _ipt_do
 {
 my ($table, $chain, $contents, $comment) = @_;
 docmd("iptables -t $table -A $chain $contents -m comment --comment \"$comment\"");
-}
-
-sub do_nevermark
-{ # This establishes rules for packet dropping based on marks in the three chains that are the last to see a packet
-foreach my $fchain (qw/INPUT OUTPUT FORWARD/)
-	{
-	if(! ipt_rule_present("wocut: nevermark", "filter", $fchain))
-		{
-		_ipt_do("filter", $fchain, "-m mark --mark $nevermark -j DROP", "wocut: nevermark");
-		}
-	}
 }
 
 sub ipt_rule_present

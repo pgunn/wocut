@@ -10,5 +10,9 @@ represent?
 
 Global configs to a config file
 
+Split this into modules. Dispatch and do_ functions don't belong in the
+same file.
+
 Python port. Library ports for both Perl and Python.
 
+Clean up terminology on "service" versus the things we start.
