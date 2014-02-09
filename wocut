@@ -31,6 +31,8 @@ elsif(	$cfg{cmd} eq 'define1')		{dispatch_define1(	%cfg);}
 elsif(	$cfg{cmd} eq 'undefine')	{dispatch_undefine(	%cfg);}
 elsif(	$cfg{cmd} eq 'list')		{dispatch_list(		%cfg);}
 elsif(	$cfg{cmd} eq 'stats')		{dispatch_stats(	%cfg);}
+elsif(	$cfg{cmd} eq 'svcstart')	{dispatch_svcstart(	%cfg);}
+elsif(	$cfg{cmd} eq 'svcstop')		{dispatch_svcstop(	%cfg);}
 }
 
 sub handle_args
@@ -59,6 +61,8 @@ elsif($cfg{cmd} eq 'define1')
 	$cfg{service} = shift(@args);
 	$cfg{definition} = \@args; # Stash the whole thing for more parsing later
 	}
+elsif($cfg{cmd} eq 'svcstart') {} # Takes no args TODO: Complain if user provides some
+elsif($cfg{cmd} eq 'svcstop' ) {} # Takes no args
 else	{usage();}
 return %cfg;
 }
@@ -222,6 +226,35 @@ if($status == 2)
 unlink("$servicedir/$cfg{service}.wocut");
 }
 
+sub dispatch_svcstart
+{	# Start instances that have the "auto" flag set.
+	# Doesn't take arguments.
+	# FIXME: We need another layer below the dispatch functions so dispatch never calls dispatch
+	#	and ape shall never kill ape
+my %svcs = read_services();
+map	{
+	dispatch_start(service => $_);
+	}
+	grep	{ # Select those set to autostart
+		$svcs{$_}{auto};
+		}
+		(keys %svcs);
+}
+
+sub svcstop
+{	# Stop all instances.
+	# Doesn't take arguments.
+	# FIXME: We need another layer below the dispatch functions so dispatch never calls dispatch
+	#	and ape shall never kill ape
+my %svcs = read_services();
+map	{
+	dispatch_stop(service => $_);
+	}
+	grep	{ # select actives only
+		(service_status($_) == 2) ? 1 : 0;
+		} (keys %svcs);
+}
+
 #################
 # Handle wocut files
 
@@ -263,12 +296,14 @@ $data{auto} = $truefalse ? 1 : 0;
 _write_service("$servicedir/$svc.wocut", %data);
 }
 
-sub serviceautos_read
-{
-my ($svc) = @_;
-my %data = _read_service("$servicedir/$svc.wocut");
-return $data{auto};
-}
+#sub serviceautos_read
+#{	# XXX Not necessary because of how read_services() works. Reimplement this call if we ever are backed by a
+	# database, or if we refactor and provide a lightweight list_services() that doesn't fetch all the fields
+	# upfront. Which we might want to do.
+#my ($svc) = @_;
+#my %data = _read_service("$servicedir/$svc.wocut");
+#return $data{auto};
+#}
 
 sub service_status
 { # Report on if service is defined, and if it is, whether it's enabled.
