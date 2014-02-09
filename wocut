@@ -241,7 +241,7 @@ map	{
 		(keys %svcs);
 }
 
-sub svcstop
+sub dispatch_svcstop
 {	# Stop all instances.
 	# Doesn't take arguments.
 	# FIXME: We need another layer below the dispatch functions so dispatch never calls dispatch
