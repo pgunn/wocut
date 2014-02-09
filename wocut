@@ -96,6 +96,13 @@ die "\n";
 
 ################
 # Dispatch functions
+#
+# Rules for dispatch_ functions:
+#	These exist to do sanity checks for do_ functions, and
+#	should never call other dispatch_ functions. If they need to
+#	cause those sanity checks to happen, they should do them themselves.
+#	The buck stops here. Ape shall never kill ape.
+#	Note: You really, really should do lots of sanity checking here.
 
 sub dispatch_list
 {	# List with details. Do we want a shortlist command too?
@@ -253,6 +260,51 @@ map	{
 	grep	{ # select actives only
 		(service_status($_) == 2) ? 1 : 0;
 		} (keys %svcs);
+}
+
+#################
+# do_ functions
+# A layer below dispatch functions that do a reasonably high-level thing
+# TODO: Refactor the above dispatch functions to use these
+
+sub do_list
+{
+
+}
+
+sub do_stats
+{
+
+}
+
+sub do_start
+{
+
+}
+
+sub do_stop
+{
+
+}
+
+sub do_define1
+{
+
+}
+
+sub do_undefine
+{
+
+}
+
+sub do_svcstart
+{
+
+}
+
+sub do_svcstop
+{
+
 }
 
 #################
