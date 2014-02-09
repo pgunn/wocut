@@ -1,0 +1,14 @@
+Add rules used for better tracking packet flow to specific ports, as an
+option
+
+Refactor dispatch_ functions into do_functions
+
+Offer to remove the 9999 rule
+
+Convert marks so they display the same in hex as what they're meant to
+represent?
+
+Global configs to a config file
+
+Python port. Library ports for both Perl and Python.
+
