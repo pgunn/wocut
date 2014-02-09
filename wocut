@@ -65,16 +65,29 @@ return %cfg;
 
 sub usage
 {
-die "Usage: wocut COMMAND\n"
-.	"\tCOMMAND is one of:\n"
-.	"\t\tlist\n"
-.	"\t\tstats SERVICE\n"
-.	"\t\tstart SERVICE\n"
-.	"\t\tstop SERVICE\n"
-.	"\t\tdefine1 SERVICE DEFINITION\n"
-.	"\t\tundefine SERVICE\n\n"
-.	"A service might be defined as follows:\n"
-.	"\twocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115\n";
+print <<EOUSAGE;
+Usage: wocut COMMAND
+	COMMAND is one of:
+		list
+		stats SERVICE
+		start SERVICE
+		stop SERVICE
+		define1 SERVICE DEFINITION
+		undefine SERVICE
+
+EOUSAGE
+service_usage();
+die "\n";
+}
+
+sub service_usage
+{
+print <<EOSUSAGE;
+A service might be defined as follows:
+	twocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+EOSUSAGE
+
+die "\n";
 }
 
 ################
@@ -184,13 +197,13 @@ if(${$cfg{definition}}[0] eq "nodirect")
 	$service{blockdirect} = 1;
 	}
 my ($indef, $to, @ports) = @{$cfg{definition}};
-if($to ne 'to') {die "Invalid syntax for service definition\n";} # Sanity check
+if($to ne 'to') {warn "Invalid syntax for service definition\n"; service_usage();} # Sanity check
 $indef =~ /^(\d+)\/(\w+)$/;
 my ($inport, $proto) = ($1, $2);
 if(	($proto eq 'tcp')
 ||	($proto eq 'udp'))
 	{$service{proto} = $proto;}
-else	{die "Invalid syntax for service definition\n";}
+else	{warn "Invalid syntax for service definition\n"; service_usage();}
 # XXX Option: Check port range for inclusion, for both in and out.
 $service{inport} = $inport;
 $service{markports} = \@ports;
