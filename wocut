@@ -128,7 +128,6 @@ foreach my $service (sort {$a cmp $b} keys %services)
 	}
 }
 
-#TODO: Is it worth doing this without the RAW rules we need to get more than initial-packet info?
 sub dispatch_stats
 {	# "service" key says which one
 	# FIXME: This really is shoddy statistics
@@ -467,6 +466,10 @@ for(my $portiter = 1, my $probiter = @dports; $portiter < @dports; $portiter++,$
 foreach my $dport (@dports)
 	{
 	_ipt_do("nat", "PREROUTING", "-p $service{proto} -m mark --mark $dport -j REDIRECT --to-port $dport", "wocut-$svcname: redirect to port $dport");
+	if($service{monitoring})
+		{ # Filter rules will have the 9999 stuff filtered out already.
+		_ipt_do("filter", "INPUT", "-p $service{proto} --dport $dport", "wocut-$svcname: monitor port $dport");
+		}
 	}
 }
 
@@ -476,6 +479,7 @@ my ($svcname) = @_;
 
 my @rules_mangle	= `iptables -v -n --line-numbers -L PREROUTING -t mangle`;
 my @rules_nat		= `iptables -v -n --line-numbers -L PREROUTING -t nat`;
+my @rules_monitor	= `iptables -v -n --line-numbers -L INPUT -t filter`;
 dprint(2, "ipt_remove asked to remove service $svcname\n");
 # There problem with doing this forward-iteratively with a map is that each deletion changes future indices.
 # So instead, we find the rules that match our service, extract the line numbers from them,
@@ -488,6 +492,9 @@ map	{
 map	{
 	system("iptables -t nat -D PREROUTING $_");
 	}  sort {$b <=> $a} map {(split(/\s+/))[0]} grep{/wocut-$svcname:/} @rules_nat;
+map	{
+	system("iptables -t filter -D INPUT $_");
+	}  sort {$b <=> $a} map {(split(/\s+/))[0]} grep{/wocut-$svcname:/} @rules_monitor;
 }
 
 sub _ipt_do

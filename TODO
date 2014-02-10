@@ -1,5 +1,10 @@
 Add rules used for better tracking packet flow to specific ports, as an
-option
+option.
+	I've been thinking about this. RAW rules wouldn't do it; they happen
+	too early in iptables. I think I could do it with INPUT rules, which
+	happen just before the packets are delivered to local processes.
+
+	I started to implement this. I need to hook it up to the interface.
 
 Refactor dispatch_ functions into do_functions
 
