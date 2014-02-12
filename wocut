@@ -88,7 +88,7 @@ sub service_usage
 {
 print <<EOSUSAGE;
 A service might be defined as follows:
-	twocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+	wocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
 EOSUSAGE
 
 die "\n";
