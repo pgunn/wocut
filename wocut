@@ -88,7 +88,7 @@ sub service_usage
 {
 print <<EOSUSAGE;
 A service might be defined as follows:
-	wocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+	wocut define1 apache [auto] [nodirect] [monitor] 80/tcp to 4113 4114 4115
 EOSUSAGE
 
 die "\n";
@@ -180,11 +180,11 @@ else
 sub dispatch_define1
 { # "service" key says which one, "definition" key is a listref that defines the service.
 # What kind of syntax is best?
-#	wocut define1 apache [auto] [nodirect] 80/tcp to 4113 4114 4115
+#	wocut define1 apache [auto] [nodirect] [monitor] 80/tcp to 4113 4114 4115
 # or
-#	wocut define apache auto=on allowdirect=false port=80 proto=tcp dport=4113,4114,4115
+#	wocut define apache auto=on allowdirect=false monitor=on port=80 proto=tcp dport=4113,4114,4115
 # or
-#	wocut define apache:auto:nodirect:port=80:proto=tcp:dport=4113,4114,4115
+#	wocut define apache:auto:nodirect:monitor:port=80:proto=tcp:dport=4113,4114,4115
 # or....
 # Let's just go with the first for now. Tired of indecision. In fact, we'll call this "define1"
 #	and maybe allow other syntaces with "defineX". Take that, second guessing myself!
@@ -197,16 +197,22 @@ my %service; # Used to hold the definition we're building
 
 $service{auto} = 0;
 $service{blockdirect} = 0;
+$service{monitor} = 0;
 
-if(${$cfg{definition}}[0] eq "auto")
+if(${$cfg{definition}}[0] eq 'auto')
 	{
 	shift(@{$cfg{definition}}); # Remove it for easy parsing
 	$service{auto} = 1;
 	}
-if(${$cfg{definition}}[0] eq "nodirect")
+if(${$cfg{definition}}[0] eq 'nodirect')
 	{
 	shift(@{$cfg{definition}}); # Remove it for easy parsing
 	$service{blockdirect} = 1;
+	}
+if(${$cfg{definition}}[0] eq 'monitor')
+	{
+	shift(@{$cfg{definition}}); # Remove it for easy parsing
+	$service{monitor} = 1;
 	}
 my ($indef, $to, @ports) = @{$cfg{definition}};
 if($to ne 'to') {warn "Invalid syntax for service definition\n"; service_usage();} # Sanity check
