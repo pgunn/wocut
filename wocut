@@ -132,13 +132,20 @@ sub dispatch_stats
 {	# "service" key says which one
 	# FIXME: This really is shoddy statistics
 my %cfg = @_;
-my %iconn_data = service_statistics($cfg{service});
-print "Total connections initiated: " . $iconn_data{totalpackets} . "\n";
-print "\t(Following table does not include the first target port)\n";
-foreach my $port (sort {$a <=> $b} keys %{$iconn_data{details}})
+my %sdata = service_statistics($cfg{service});
+if($sdata{stattype} eq 'initial')
 	{
-	print "\tSent to port $port: " . $iconn_data{details}{$port} . "\n";
+	print "Total connections initiated: " . $sdata{totalpackets} . "\n";
+	print "\t(Following table does not include the first target port)\n";
+	foreach my $port (sort {$a <=> $b} keys %{$sdata{details}})
+		{print "\tSent to port $port: " . $sdata{details}{$port} . "\n";}
 	}
+elsif($sdata{stattype} eq 'deep')
+	{
+	# TODO
+	}
+else
+	{die "Internal error: statistics code returned unknown format\n";}
 }
 
 # Converted
@@ -395,30 +402,41 @@ sub service_statistics
 	#	traffic. When we do that, we can look for those here.
 my ($svcname) = @_;
 
-my @lines = grep {/wocut-$svcname:/}
-	map {s/^\s+//; $_} # Remove the pre-padding
+my @deepstats = grep {/wocut-$svcname: monitor port/}
 	grep {! /^Chain/}
-	qx/iptables -t mangle -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
-
-# So now @lines will be of format:
-# $packets $bytes $RULE
-my ($remarkline) = grep {/wocut-$svcname: initialmark/} @lines;
-my @redirlines = grep {/wocut-$svcname: remark/} @lines;
-
-# Looking at the packets listing will give us an estimate for the number of connections routed
-# through this mechanism. The bytes metric here is useless, as it only shows bytes from initial packets.
-
-my ($ipackets) = split(/\s+/, $remarkline);
-my %sstats;
-foreach my $redirline (@redirlines)
+	qx/iptables -t filter -v -n -x -L INPUT/;
+if(@deepstats)
 	{
-	my ($rpackets) = split(/\s+/, $redirline);
-	$redirline =~ /remark for port (\d+)/;
-	my $rport = $1;
-	$sstats{$rport} = $rpackets;
+	#TODO
 	}
-return (	totalpackets => $ipackets,
-		details => \%sstats);
+else # Poor man's statististics
+	{
+	my @lines = grep {/wocut-$svcname:/}
+		map {s/^\s+//; $_} # Remove the pre-padding
+		grep {! /^Chain/}
+		qx/iptables -t mangle -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
+
+	# So now @lines will be of format:
+	# $packets $bytes $RULE
+	my ($remarkline) = grep {/wocut-$svcname: initialmark/} @lines;
+	my @redirlines = grep {/wocut-$svcname: remark/} @lines;
+
+	# Looking at the packets listing will give us an estimate for the number of connections routed
+	# through this mechanism. The bytes metric here is useless, as it only shows bytes from initial packets.
+
+	my ($ipackets) = split(/\s+/, $remarkline);
+	my %sstats;
+	foreach my $redirline (@redirlines)
+		{
+		my ($rpackets) = split(/\s+/, $redirline);
+		$redirline =~ /remark for port (\d+)/;
+		my $rport = $1;
+		$sstats{$rport} = $rpackets;
+		}
+	return (	stattype => 'initial',
+			totalpackets => $ipackets,
+			details => \%sstats);
+	}
 }
 
 sub _read_service
