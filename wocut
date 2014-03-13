@@ -403,11 +403,21 @@ sub service_statistics
 my ($svcname) = @_;
 
 my @deepstats = grep {/wocut-$svcname: monitor port/}
+	map {s/^\s+//; $_} # Remove the pre-padding
 	grep {! /^Chain/}
 	qx/iptables -t filter -v -n -x -L INPUT/; # XXX right flags?
 if(@deepstats)
-	{
-	#TODO
+	{ # We're parsing rules that resemble $packets $bytes ... wocut-$svcname: monitor port $port
+	my %packets;
+	my %bytes;
+	map
+		{
+		$_ =~ /^(\d+[KMGT]?) (\d+[KMGT]?) .*wocut-$svcname: monitor port (\d+)/;
+		my ($rule_pkts, $rule_bytes, $rule_port) = ($1, $2, $3);
+		$packets{$rule_port} = $rule_pkts;
+		$bytes{$rule_port} = $rule_bytes;
+		} @deepstats;
+	# TODO: return stuff
 	}
 else # Poor man's statististics
 	{
