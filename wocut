@@ -404,7 +404,7 @@ my ($svcname) = @_;
 
 my @deepstats = grep {/wocut-$svcname: monitor port/}
 	grep {! /^Chain/}
-	qx/iptables -t filter -v -n -x -L INPUT/;
+	qx/iptables -t filter -v -n -x -L INPUT/; # XXX right flags?
 if(@deepstats)
 	{
 	#TODO
