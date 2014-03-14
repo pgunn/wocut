@@ -411,10 +411,7 @@ sub service_statistics
 	#	traffic. When we do that, we can look for those here.
 my ($svcname) = @_;
 
-my @deepstats = grep {/wocut-$svcname: monitor port/}
-	map {s/^\s+//; $_} # Remove the pre-padding
-	grep {! /^Chain/}
-	qx/iptables -t filter -v -n -x -L INPUT/;
+my @deepstats = ipt_grep('filter', 'INPUT', $svcname, 'monitor port');
 if(@deepstats)
 	{ # We're parsing rules that resemble $packets $bytes ... wocut-$svcname: monitor port $port
 	my %packets;
@@ -432,15 +429,11 @@ if(@deepstats)
 	}
 else # Poor man's statististics
 	{
-	my @lines = grep {/wocut-$svcname:/}
-		map {s/^\s+//; $_} # Remove the pre-padding
-		grep {! /^Chain/}
-		qx/iptables -t mangle -v -n -x -L PREROUTING/; # The -x flag gives us raw numbers rather than suffices.
+	my ($remarkline) = ipt_grep('mangle', 'PREROUTING', $svcname, 'initialmark');
+	my @redirlines = ipt_grep('mangle', 'PREROUTING', $svcname, 'remark');
 
 	# So now @lines will be of format:
 	# $packets $bytes $RULE
-	my ($remarkline) = grep {/wocut-$svcname: initialmark/} @lines;
-	my @redirlines = grep {/wocut-$svcname: remark/} @lines;
 
 	# Looking at the packets listing will give us an estimate for the number of connections routed
 	# through this mechanism. The bytes metric here is useless, as it only shows bytes from initial packets.
@@ -479,6 +472,8 @@ DumpFile($file, \%data) || die "Failed to write wofile [$file]\n";
 
 ###############
 # Handle iptables rules
+# TODO: Ideally move all invocations of iptables to this section, eventually
+#	abstract all of this out to a separate module.
 
 sub ipt_is_present
 {	# Note that this does *NOT* check correctness by the current config; it just looks for a single correct crumb. If the user's fucked with the rules,
@@ -554,6 +549,19 @@ my ($ruleid, $table, $chain) = @_;
 
 my @rules = `iptables -v -n -L $chain -t $table`;
 return scalar grep(/$ruleid/,@rules);
+}
+
+sub ipt_grep
+{ # Returns all rule-lines matching the TC and the comment field; structured format or just text?
+my ($table, $chain, $svcname, $comment) = @_;
+
+return
+	grep	{/wocut-$svcname: ?$comment/}
+	grep	{! /bytes target prot opt/} # Remove the column header
+	map	{s/^\s+//; $_} # Remove the pre-padding
+	grep	{! /^Chain/} # Remove the CT summary
+	map	{s/^\s+//; $_}
+	qx/iptables -t $table -v -n -x -L $chain/;
 }
 
 #################
