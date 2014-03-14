@@ -130,7 +130,10 @@ foreach my $service (sort {$a cmp $b} keys %services)
 
 sub dispatch_stats
 {	# "service" key says which one
-	# FIXME: This really is shoddy statistics
+	# Can run in two modes; an inexpensive "initial" mode that uses the counters on
+	# the existing rules to only track the initial packets used for connections, and
+	# a slightly more expensive "detailed" mode that adds additional INPUT rules to
+	# more accurately track connections. 
 my %cfg = @_;
 my %sdata = service_statistics($cfg{service});
 if($sdata{stattype} eq 'initial')
@@ -144,10 +147,10 @@ elsif($sdata{stattype} eq 'detailed')
 	{	# detailed, packets, bytes
 		# packets and bytes are hashes with their keys as ports and values as number+suffix as count.
 	print "Dataflow:\n";
-	foreach my $port (sort {$a <=> $b} keys %{$sdata{details}{packets}})	# Both the packets and bytes hashes should have
+	foreach my $port (sort {$a <=> $b} keys %{$sdata{packets}})	# Both the packets and bytes hashes should have
 										# the same keys
 		{
-		print "Port: " . $sdata{details}{packets}{$port} . " packets, " . $sdata{details}{bytes}{$port} . " bytes\n";
+		print "Port: " . $sdata{packets}{$port} . " packets, " . $sdata{bytes}{$port} . " bytes\n";
 		}
 	}
 else
