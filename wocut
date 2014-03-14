@@ -144,6 +144,12 @@ elsif($sdata{stattype} eq 'detailed')
 	{	# detailed, packets, bytes
 		# packets and bytes are hashes with their keys as ports and values as number+suffix as count.
 	# TODO
+	print "Dataflow:\n";
+	foreach my $port (sort {$a <=> $b} keys %{$sdata{details}{packets}})	# Both the packets and bytes hashes should have
+										# the same keys
+		{
+		print "Port: " . $sdata{details}{packets}{$port} . " packets, " . $sdata{details}{bytes}{$port} . " bytes\n";
+		}
 	}
 else
 	{die "Internal error: statistics code returned unknown format\n";}
