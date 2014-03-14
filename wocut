@@ -143,7 +143,6 @@ if($sdata{stattype} eq 'initial')
 elsif($sdata{stattype} eq 'detailed')
 	{	# detailed, packets, bytes
 		# packets and bytes are hashes with their keys as ports and values as number+suffix as count.
-	# TODO
 	print "Dataflow:\n";
 	foreach my $port (sort {$a <=> $b} keys %{$sdata{details}{packets}})	# Both the packets and bytes hashes should have
 										# the same keys
